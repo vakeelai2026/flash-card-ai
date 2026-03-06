@@ -1,0 +1,39 @@
+---
+description: Database interactions must always use the Drizzle schema and queries
+alwaysApply: true
+---
+
+# Database Interactions
+
+All database access **must** use the Drizzle ORM via the `db` client from `src/db/index.ts` and the table schemas defined in `src/db/schema.ts`.
+
+## Tables
+
+- `decksTable` — stores user flash card decks
+- `cardsTable` — stores individual cards belonging to a deck
+
+## Rules
+
+- **Never** write raw SQL strings for queries
+- **Never** use a different database client or connection
+- Always import tables from `@/db/schema` and the client from `@/db`
+
+## Examples
+
+```typescript
+// ✅ GOOD — Drizzle query using schema
+import { db } from '@/db';
+import { decksTable, cardsTable } from '@/db/schema';
+import { eq } from 'drizzle-orm';
+
+const decks = await db.select().from(decksTable).where(eq(decksTable.clerkUserId, userId));
+
+await db.insert(cardsTable).values({ deckId: 1, front: 'Q', back: 'A' });
+
+await db.delete(decksTable).where(eq(decksTable.id, deckId));
+```
+
+```typescript
+// ❌ BAD — raw SQL / external client
+const result = await sql`SELECT * FROM decks WHERE clerk_user_id = ${userId}`;
+```

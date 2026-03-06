@@ -1,0 +1,42 @@
+---
+alwaysApply: true
+---
+# shadcn/ui Components
+
+This project uses [shadcn/ui](https://ui.shadcn.com/). Components are **not bundled** — each must be installed individually into `src/components/ui/`.
+
+## Installing a Component
+
+If a component is not yet installed, use:
+
+```bash
+npx shadcn@latest add <component-name>
+```
+
+### Examples
+
+```bash
+npx shadcn@latest add button
+npx shadcn@latest add card
+npx shadcn@latest add input
+npx shadcn@latest add dialog
+npx shadcn@latest add badge
+```
+
+Multiple components at once:
+
+```bash
+npx shadcn@latest add button card input dialog
+```
+
+## Checking Installed Components
+
+Installed components live in `src/components/ui/`. Check there before adding.
+
+## Usage
+
+```tsx
+import { Button } from "@/components/ui/button"
+
+<Button variant="outline">Click me</Button>
+```

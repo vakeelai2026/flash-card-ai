@@ -1,0 +1,83 @@
+---
+alwaysApply: true
+---
+# Data Fetching, Mutations & Validation
+
+## Data Retrieval — Server Components Only
+
+All data fetching **must** be done inside Server Components. Never fetch data inside Client Components directly.
+
+```tsx
+// ✅ GOOD — fetch in a Server Component
+export default async function DecksPage() {
+  const decks = await getUserDecks();
+  return <DeckList decks={decks} />;
+}
+
+// ❌ BAD — fetching inside a Client Component
+'use client';
+export default function DecksPage() {
+  const [decks, setDecks] = useState([]);
+  useEffect(() => { fetch('/api/decks').then(...) }, []);
+}
+```
+
+## Mutations — Server Actions Only
+
+Any **insert**, **update**, or **delete** database operation **must** be performed inside a [Server Action](mdc:src/actions), never in API routes or client-side code.
+
+```typescript
+// ✅ GOOD — mutation via Server Action
+'use server';
+export async function createDeck(data: CreateDeckInput) { ... }
+
+// ❌ BAD — mutation in an API route handler or client code
+export async function POST(req: Request) {
+  const body = await req.json();
+  await db.insert(decksTable).values(body);
+}
+```
+
+## Validation — Zod Required
+
+All data validation **must** use [Zod](https://zod.dev/). Define a Zod schema and derive the TypeScript type from it with `z.infer`.
+
+```typescript
+import { z } from 'zod';
+
+const createDeckSchema = z.object({
+  name: z.string().min(1).max(100),
+  description: z.string().optional(),
+});
+
+type CreateDeckInput = z.infer<typeof createDeckSchema>;
+```
+
+## Server Action Inputs — Typed & Validated
+
+- **Always** define a TypeScript type for every Server Action parameter (derived from a Zod schema via `z.infer`)
+- **Always** validate the input with `.parse()` or `.safeParse()` at the top of the action
+- **Never** use `FormData` as the parameter type
+
+```typescript
+// ✅ GOOD
+'use server';
+import { z } from 'zod';
+
+const createDeckSchema = z.object({
+  name: z.string().min(1),
+});
+
+type CreateDeckInput = z.infer<typeof createDeckSchema>;
+
+export async function createDeck(data: CreateDeckInput) {
+  const validated = createDeckSchema.parse(data);
+  // proceed with validated data...
+}
+
+// ❌ BAD — untyped FormData, no validation
+export async function createDeck(formData: FormData) {
+  const name = formData.get('name');
+  await db.insert(decksTable).values({ name });
+}
+```

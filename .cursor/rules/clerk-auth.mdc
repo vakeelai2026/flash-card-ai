@@ -1,0 +1,56 @@
+---
+alwaysApply: true
+---
+# Authentication & Authorization
+
+All authentication is handled by [Clerk](https://clerk.com/). Every server-side operation that accesses user data **must** verify the current user's identity and scope all queries to that user.
+
+## Rules
+
+- **Always** use `auth()` from `@clerk/nextjs/server` in Server Components and Server Actions to get the current `userId`
+- **Always** return a `401` / throw an error if `userId` is `null` (unauthenticated)
+- **Always** filter database queries by `clerkUserId` so a user can never read, modify, or delete another user's data
+- **Never** trust user-supplied IDs (e.g. from URL params or request bodies) without verifying ownership against the authenticated `userId`
+- **Never** expose another user's records — not even accidentally through a missing `where` clause
+
+## Pattern for Server Actions / Route Handlers
+
+```typescript
+import { auth } from '@clerk/nextjs/server';
+import { db } from '@/db';
+import { decksTable } from '@/db/schema';
+import { eq, and } from 'drizzle-orm';
+
+export async function getUserDecks() {
+  const { userId } = await auth();
+  if (!userId) throw new Error('Unauthorized');
+
+  return db.select().from(decksTable).where(eq(decksTable.clerkUserId, userId));
+}
+
+// ✅ Ownership check before mutating a record
+export async function deleteDeck(deckId: number) {
+  const { userId } = await auth();
+  if (!userId) throw new Error('Unauthorized');
+
+  await db
+    .delete(decksTable)
+    .where(and(eq(decksTable.id, deckId), eq(decksTable.clerkUserId, userId)));
+}
+```
+
+```typescript
+// ❌ BAD — no auth check, exposes all users' data
+export async function getAllDecks() {
+  return db.select().from(decksTable);
+}
+
+// ❌ BAD — trusts caller-supplied userId
+export async function getDecks(userId: string) {
+  return db.select().from(decksTable).where(eq(decksTable.clerkUserId, userId));
+}
+```
+
+## Middleware
+
+Ensure `middleware.ts` uses `clerkMiddleware` to protect all non-public routes so unauthenticated requests are rejected before they reach any handler.
