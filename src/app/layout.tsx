@@ -34,10 +34,10 @@ export default function RootLayout({
           <header className="flex justify-end items-center px-6 py-3 border-b border-border">
             <Show when="signed-out">
               <div className="flex gap-3">
-                <SignInButton mode="modal">
+                <SignInButton mode="modal" forceRedirectUrl="/dashboard">
                   <Button variant="outline">Sign In</Button>
                 </SignInButton>
-                <SignUpButton mode="modal">
+                <SignUpButton mode="modal" forceRedirectUrl="/dashboard">
                   <Button>Sign Up</Button>
                 </SignUpButton>
               </div>

@@ -3,12 +3,50 @@ alwaysApply: true
 ---
 # Data Fetching, Mutations & Validation
 
-## Data Retrieval — Server Components Only
+## Query Helper Functions — `src/db/queries/`
 
-All data fetching **must** be done inside Server Components. Never fetch data inside Client Components directly.
+All direct database access **must** be encapsulated in helper functions inside `src/db/queries/`. Server Components and Server Actions **must never** call `db` directly — they must call these query helpers instead.
+
+- Organize files by domain (e.g., `src/db/queries/decks.ts`, `src/db/queries/cards.ts`)
+- Each helper function handles its own auth check via `auth()` and scopes queries to the authenticated user
+- Export each helper as a named function
+
+```typescript
+// ✅ GOOD — src/db/queries/decks.ts
+import { auth } from '@clerk/nextjs/server';
+import { db } from '@/db';
+import { decksTable } from '@/db/schema';
+import { eq, and } from 'drizzle-orm';
+
+export async function getUserDecks() {
+  const { userId } = await auth();
+  if (!userId) throw new Error('Unauthorized');
+
+  return db.select().from(decksTable).where(eq(decksTable.clerkUserId, userId));
+}
+
+export async function deleteDeck(deckId: number) {
+  const { userId } = await auth();
+  if (!userId) throw new Error('Unauthorized');
+
+  await db
+    .delete(decksTable)
+    .where(and(eq(decksTable.id, deckId), eq(decksTable.clerkUserId, userId)));
+}
+
+// ❌ BAD — calling db directly inside a Server Component or Server Action
+import { db } from '@/db';
+const decks = await db.select().from(decksTable).where(...);
+```
+
+## Data Retrieval — Server Components via Query Helpers
+
+All data fetching **must** be done inside Server Components by calling query helpers from `src/db/queries/`. Never fetch data inside Client Components directly, and never call `db` inline.
 
 ```tsx
-// ✅ GOOD — fetch in a Server Component
+// ✅ GOOD — Server Component calls a query helper
+import { getUserDecks } from '@/db/queries/decks';
+
 export default async function DecksPage() {
   const decks = await getUserDecks();
   return <DeckList decks={decks} />;
@@ -20,16 +58,29 @@ export default function DecksPage() {
   const [decks, setDecks] = useState([]);
   useEffect(() => { fetch('/api/decks').then(...) }, []);
 }
+
+// ❌ BAD — calling db directly in a Server Component
+import { db } from '@/db';
+const decks = await db.select().from(decksTable).where(...);
 ```
 
-## Mutations — Server Actions Only
+## Mutations — Server Actions via Query Helpers
 
-Any **insert**, **update**, or **delete** database operation **must** be performed inside a [Server Action](mdc:src/actions), never in API routes or client-side code.
+Any **insert**, **update**, or **delete** database operation **must** be performed inside a [Server Action](mdc:src/actions) that delegates to a query helper from `src/db/queries/`. Never write raw `db` calls inside actions, API routes, or client-side code.
 
 ```typescript
-// ✅ GOOD — mutation via Server Action
+// ✅ GOOD — Server Action delegates to a query helper
 'use server';
-export async function createDeck(data: CreateDeckInput) { ... }
+import { deleteDeck } from '@/db/queries/decks';
+
+export async function deleteDeckAction(deckId: number) {
+  await deleteDeck(deckId);
+}
+
+// ❌ BAD — db called directly inside a Server Action
+'use server';
+import { db } from '@/db';
+await db.delete(decksTable).where(eq(decksTable.id, deckId));
 
 // ❌ BAD — mutation in an API route handler or client code
 export async function POST(req: Request) {
@@ -60,9 +111,10 @@ type CreateDeckInput = z.infer<typeof createDeckSchema>;
 - **Never** use `FormData` as the parameter type
 
 ```typescript
-// ✅ GOOD
+// ✅ GOOD — validate input, then delegate to query helper
 'use server';
 import { z } from 'zod';
+import { createDeck } from '@/db/queries/decks';
 
 const createDeckSchema = z.object({
   name: z.string().min(1),
@@ -70,12 +122,12 @@ const createDeckSchema = z.object({
 
 type CreateDeckInput = z.infer<typeof createDeckSchema>;
 
-export async function createDeck(data: CreateDeckInput) {
+export async function createDeckAction(data: CreateDeckInput) {
   const validated = createDeckSchema.parse(data);
-  // proceed with validated data...
+  await createDeck(validated);
 }
 
-// ❌ BAD — untyped FormData, no validation
+// ❌ BAD — untyped FormData, no validation, db called directly
 export async function createDeck(formData: FormData) {
   const name = formData.get('name');
   await db.insert(decksTable).values({ name });

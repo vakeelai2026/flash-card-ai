@@ -8,10 +8,25 @@ All authentication is handled by [Clerk](https://clerk.com/). Every server-side 
 ## Rules
 
 - **Always** use `auth()` from `@clerk/nextjs/server` in Server Components and Server Actions to get the current `userId`
-- **Always** return a `401` / throw an error if `userId` is `null` (unauthenticated)
+- **Always** redirect unauthenticated users to the homepage (`/`) — this app has no dedicated sign-in page; the homepage is where sign-in and sign-up are available
+- **Never** redirect to a `/sign-in` or `/login` page — use `redirect('/')` from `next/navigation` instead
 - **Always** filter database queries by `clerkUserId` so a user can never read, modify, or delete another user's data
 - **Never** trust user-supplied IDs (e.g. from URL params or request bodies) without verifying ownership against the authenticated `userId`
 - **Never** expose another user's records — not even accidentally through a missing `where` clause
+
+## Pattern for Protected Pages (Server Components)
+
+```tsx
+import { auth } from '@clerk/nextjs/server';
+import { redirect } from 'next/navigation';
+
+export default async function ProtectedPage() {
+  const { userId } = await auth();
+  if (!userId) redirect('/');
+
+  // render protected content...
+}
+```
 
 ## Pattern for Server Actions / Route Handlers
 
@@ -53,4 +68,4 @@ export async function getDecks(userId: string) {
 
 ## Middleware
 
-Ensure `middleware.ts` uses `clerkMiddleware` to protect all non-public routes so unauthenticated requests are rejected before they reach any handler.
+Ensure `middleware.ts` uses `clerkMiddleware` to protect all non-public routes. Unauthenticated users visiting protected routes should be redirected to `/` (the homepage), not a separate sign-in page.

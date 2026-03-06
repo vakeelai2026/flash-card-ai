@@ -1,13 +1,45 @@
 ---
 alwaysApply: true
 ---
-# shadcn/ui Components
+# shadcn/ui Components — MANDATORY UI LIBRARY
 
-This project uses [shadcn/ui](https://ui.shadcn.com/). Components are **not bundled** — each must be installed individually into `src/components/ui/`.
+This project uses [shadcn/ui](https://ui.shadcn.com/) as the **only** UI component library.
+
+## Absolute Rules
+
+- **NEVER** create custom UI components from scratch (no raw `<div>` styled buttons, custom modals, hand-rolled form inputs, etc.)
+- **ALWAYS** use a shadcn/ui component if one exists for the use case
+- **NEVER** use any other component library (MUI, Chakra, Radix primitives directly, Headless UI, etc.)
+- If a shadcn/ui component does not exist for a specific use case, compose it from existing shadcn/ui primitives
+
+## Clerk Authentication UI
+
+- **All** Clerk sign-in and sign-up trigger buttons **must** use the shadcn/ui `<Button>` component — never Clerk's built-in `<SignInButton>` or `<SignUpButton>` rendered with default styling
+- Clerk **must** be configured to use **modal mode** for sign-in and sign-up — never redirect to a separate page
+
+```tsx
+// ✅ GOOD — shadcn Button triggers Clerk modal
+import { SignInButton, SignUpButton } from '@clerk/nextjs';
+import { Button } from '@/components/ui/button';
+
+<SignInButton mode="modal">
+  <Button variant="outline">Sign In</Button>
+</SignInButton>
+
+<SignUpButton mode="modal">
+  <Button>Get Started</Button>
+</SignUpButton>
+
+// ❌ BAD — Clerk default button with no shadcn wrapper
+<SignInButton />
+
+// ❌ BAD — redirect mode instead of modal
+<SignInButton mode="redirect">...</SignInButton>
+```
 
 ## Installing a Component
 
-If a component is not yet installed, use:
+Components are **not bundled** — each must be installed individually into `src/components/ui/`.
 
 ```bash
 npx shadcn@latest add <component-name>
@@ -31,7 +63,7 @@ npx shadcn@latest add button card input dialog
 
 ## Checking Installed Components
 
-Installed components live in `src/components/ui/`. Check there before adding.
+Installed components live in `src/components/ui/`. Always check there before installing a new one.
 
 ## Usage
 
